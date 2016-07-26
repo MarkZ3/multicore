@@ -1,10 +1,12 @@
 #include <QCommandLineParser>
+#include <QElapsedTimer>
 #include <QDebug>
 #include <QImage>
 #include <QDir>
 #include <QRgb>
 #include <QVector>
 #include <thread>
+#include <iostream>
 
 using namespace std;
 
@@ -33,39 +35,28 @@ void *effect(void *arg)
     int dg = 0; int db = 0;
     int r, g, b;
     for (int y = h0; y < h1; y++) {
-        //QRgb line = img->scanLine(y);
+        QRgb *line = (QRgb *) img->scanLine(y);
         for (int x = 0; x < img->width(); x++) {
             if (!img->valid(x, y)) {
                 qDebug() << QString("invalid (%1,%2)").arg(x).arg(y);
             }
-            QRgb rgb = img->pixel(x, y);
+            QRgb *rgb = line + x;
 
-            r = qBound(0, qRed(rgb) + dr, 255);
-            g = qBound(0, qGreen(rgb) + dg, 255);
-            b = qBound(0, qBlue(rgb) + db, 255);
+            r = qBound(0, qRed(*rgb) + dr, 255);
+            g = qBound(0, qGreen(*rgb) + dg, 255);
+            b = qBound(0, qBlue(*rgb) + db, 255);
 
-            img->setPixel(x, y, qRgb(r, g, b));
+            *rgb = qRgb(r, g, b);
         }
     }
 
     return 0;
 }
 
-bool processImage(const QString &input, const QString &output)
+void processImage(QImage &image, int n)
 {
-    /*
-     * Get the number of cores on the system
-     */
-    int n = thread::hardware_concurrency();
-    QImage image;
     thread threads[n];
     work items[n];
-
-    if (!image.load(input)) {
-        qDebug() << "error loading image" << input;
-        return false;
-    }
-    image = image.convertToFormat(QImage::Format_RGB32);
 
     for (int i = 0; i < n; i++) {
         items[i] = work{n, i, &image};
@@ -75,8 +66,6 @@ bool processImage(const QString &input, const QString &output)
     for (int i = 0; i < n; i++) {
         threads[i].join();
     }
-
-    return image.save(output);
 }
 
 int main(int argc, char *argv[])
@@ -101,11 +90,42 @@ int main(int argc, char *argv[])
     QString input(parser.value(inOption));
     QString output(parser.value(outOption));
     if (!parser.isSet(outOption)) {
-        output = parser.value(inOption) + ".modz.png";
+        output = parser.value(inOption) + ".modz";
     }
 
+    int n = thread::hardware_concurrency();
     qDebug() << "input:" << input;
     qDebug() << "output:" << output;
+    qDebug() << "num cpus:" << n;
 
-    return processImage(input, output);
+    QImage image;
+    if (!image.load(input)) {
+        qDebug() << "error loading image" << input;
+        return false;
+    }
+    image = image.convertToFormat(QImage::Format_RGB32);
+
+    // benchmark
+    QMap<int, qint64> results;
+    QElapsedTimer timer;
+    for (int cpus = 1; cpus <= n; cpus *= 2) {
+        qDebug() << "threads=" << cpus;
+        timer.restart();
+        processImage(image, cpus);
+        results[cpus] = timer.nsecsElapsed();
+        image.save(output + "." + QString::number(cpus) + ".png");
+    }
+
+    // report
+    double baseline = results[1];
+    for (const int key : results.keys()) {
+        double speedup = baseline / results[key];
+        cout << QString("%1;%2;%3")
+                .arg(key)
+                .arg(results[key])
+                .arg(speedup)
+                .toStdString() << endl;
+    }
+
+    return 0;
 }
