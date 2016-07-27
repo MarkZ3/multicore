@@ -27,6 +27,14 @@ double elapsed(std::function<void ()> func)
     return timer.nsecsElapsed() / 1000000000.0f;
 }
 
+void print_result(QString name, double reference, double actual)
+{
+    qDebug() << QString("%1 %2s (%3x)")
+                .arg(name, -12, QLatin1Char(' '))
+                .arg(actual, 0, 'f', 6)
+                .arg(reference / actual, 0, 'f', 2);
+}
+
 int main()
 {
     int range_max = 50000;
@@ -61,26 +69,10 @@ int main()
         });
     });
 
-    qDebug() << serial << fixed << dynamic;
-
-    //dispatch_static(prefix_range, range_max, b1);
-    //dispatch_dynamic(prefix_range, range_max, b2);
-
     // report
-    /*
-    QFile output("results.csv");
-    if (output.open(QIODevice::WriteOnly)) {
-        QTextStream out(&output);
-        double baseline = b1[1];
-        for (const int key : b1.keys()) {
-            double speedup1 = baseline / b1[key];
-            double speedup2 = baseline / b2[key];
-            out << QString("%1,%2,%3\n")
-                    .arg(key)
-                    .arg(speedup1)
-                    .arg(speedup2);
-        }
-    }
-    */
+    print_result("serial", serial, serial);
+    print_result("fixed", serial, fixed);
+    print_result("dynamic", serial, dynamic);
+    return 0;
 }
 
