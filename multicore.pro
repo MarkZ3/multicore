@@ -8,3 +8,4 @@ SUBDIRS += \
     12-tbb-parallel-reduce \
     13-tbb-parallel-sort \
     dragonizer \
+    14-tbb-parallel-scan

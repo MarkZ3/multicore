@@ -11,7 +11,7 @@ QT       -= gui
 TARGET = 10-cpp-lambda
 CONFIG   += console
 CONFIG   -= app_bundle
-CONFIG += C++11
+CONFIG += C++14
 
 TEMPLATE = app
 
