@@ -8,6 +8,9 @@ CONFIG -= app_bundle
 TEMPLATE = app
 
 SOURCES += main.cpp
-LIBS += -ltbb
+
+HEADERS += tp.h
+
+LIBS += -ltbb -llttng-ust -ldl
 
 include(../common.pri)

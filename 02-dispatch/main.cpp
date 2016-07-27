@@ -7,6 +7,10 @@
 #include <iostream>
 #include <tbb/tbb.h>
 
+#define TRACEPOINT_CREATE_PROBES
+#define TRACEPOINT_DEFINE
+#include "tp.h"
+
 using namespace std;
 
 // this algorithm has runtime of O(n^2)
@@ -40,10 +44,11 @@ int main()
     int range_max = 50000;
     vector<int> result(range_max);
     auto prefix_range = [&] (const int x0, const int x1) {
-        //qDebug() << "thread:" << x0 << x1;
+        tracepoint(dispatch, entry, x0, x1);
         for (int x = x0; x < x1; x++) {
             result[x] = prefix_sum(x);
         }
+        tracepoint(dispatch, exit);
     };
 
     double serial = elapsed([&](){ prefix_range(0, range_max); });
