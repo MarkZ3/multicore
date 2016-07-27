@@ -39,12 +39,15 @@ void print_result(QString name, double reference, double actual)
                 .arg(reference / actual, 0, 'f', 2);
 }
 
+thread_local int color = 0;
+
 int main()
 {
     int range_max = 50000;
     vector<int> result(range_max);
     auto prefix_range = [&] (const int x0, const int x1) {
-        tracepoint(dispatch, entry, x0, x1);
+        color = (color + 1) % 2;
+        tracepoint(dispatch, entry, x0, x1, color);
         for (int x = x0; x < x1; x++) {
             result[x] = prefix_sum(x);
         }

@@ -10,10 +10,11 @@
 TRACEPOINT_EVENT(
         dispatch,
         entry,
-        TP_ARGS(int, begin, int, end),
+        TP_ARGS(int, begin, int, end, int, color),
         TP_FIELDS(
             ctf_integer(int, begin, begin)
             ctf_integer(int, end, end)
+            ctf_integer(int, color, color)
         )
 )
 
