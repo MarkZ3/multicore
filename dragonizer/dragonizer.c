@@ -19,6 +19,8 @@
 #include <error.h>
 #include <getopt.h>
 #include <inttypes.h>
+#include <time.h>
+#include <math.h>
 
 #include "dragon.h"
 #include "dragon_pthread.h"
@@ -33,6 +35,7 @@
 #define DEFAULT_LIB_NAME "serial"
 #define DEFAULT_IMG_PATH "dragon.ppm"
 #define POWER_MAX 		30
+#define POWER_BENCH 	25
 #define CHECK_POWER 	20
 #define CHECK_NB_THREAD	8
 static const struct command_def const *commands[];
@@ -346,6 +349,90 @@ static int cmd_check(struct command_opts *opts)
 static const struct command_def cmd_check_def =
 { .name = "check", .handler = cmd_check };
 
+double seconds(struct timespec *t)
+{
+    return t->tv_sec + 1.0E-9 * t->tv_nsec;
+}
+
+static int cmd_benchmark(struct command_opts *opts)
+{
+    int ret = 0;
+    char *drg = NULL;
+    int cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    double samples[10];
+
+    double serial_mean = 0;
+
+    for (int i = 0; libs[i].lib != THREAD_LIB_NONE; i++) {
+        char *path;
+        asprintf(&path, "%s.dat", libs[i].name);
+        FILE *out = fopen(path, "w");
+        if (!out)
+            goto err;
+        int nr_thread = cpus;
+        if (libs[i].lib == THREAD_LIB_SERIAL)
+            nr_thread = 1;
+        for (int threads = 1; threads <= nr_thread; threads++) {
+            for (int repeat = 0; repeat < 10; repeat++) {
+                struct timespec t1, t2;
+
+                clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+
+                struct rgb *img = make_canvas(opts->width, opts->height);
+                if (img == NULL)
+                    goto err;
+                ret = libs[i].draw_handler(&drg, img, opts->width, opts->height, opts->size, threads);
+                if (ret < 0) {
+                    printf("Error executing draw with %s\n", libs[i].name);
+                    goto err;
+                }
+                write_img(img, opts->pgm_path, opts->width, opts->height);
+                FREE(img);
+                FREE(drg);
+                clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
+                double elapsed = seconds(&t2) - seconds(&t1);
+                printf("%-10s %d %d %0.3f\n", libs[i].name, threads, repeat, elapsed);
+                samples[repeat] = elapsed;
+            }
+            double mean = 0;
+            double sd = 0;
+            double temp = 0;
+
+            for (int x = 0; x < 10; x++) {
+                temp += samples[x];
+            }
+            mean = temp / 10;
+
+            // compute sd
+            temp = 0;
+            for (int x = 0; x < 10; x++) {
+                double v = (samples[x] - mean);
+                temp += v * v;
+            }
+            sd = sqrt(temp);
+
+            if (libs[i].lib == THREAD_LIB_SERIAL) {
+                serial_mean = mean;
+            }
+
+            double speedup = serial_mean / mean;
+            double efficiency = speedup / threads;
+
+            fprintf(out, "%d %f %f %f %f\n", threads, mean, sd, speedup, efficiency);
+        }
+        fclose(out);
+    }
+
+done:
+    return ret;
+err:
+    ret = -1;
+    goto done;
+}
+
+static const struct command_def cmd_benchmark_def =
+{ .name = "benchmark", .handler = cmd_benchmark };
+
 static const struct command_def cmd_def_last =
 { .name = NULL, .handler = NULL };
 
@@ -353,6 +440,7 @@ static const struct command_def const *commands[] = {
 		&cmd_draw_def,
 		&cmd_limit_def,
 		&cmd_check_def,
+        &cmd_benchmark_def,
 		&cmd_def_last
 };
 
