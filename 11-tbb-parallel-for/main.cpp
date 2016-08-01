@@ -1,4 +1,5 @@
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QVector>
 #include "tbb/tbb.h"
 
@@ -23,26 +24,52 @@ private:
     int *m_data;
 };
 
-int main(int argc, char *argv[])
+double elapsed(std::function<void ()> func)
 {
-    (void) argc; (void) argv;
+    QElapsedTimer timer;
+    timer.start();
+    func();
+    return timer.nsecsElapsed() / 1000000000.0f;
+}
 
-    int n = 100;
-    int *array = new int[n];
+void print_result(QString name, double reference, double actual)
+{
+    qDebug() << QString("%1 %2s (%3x)")
+                .arg(name, -12, QLatin1Char(' '))
+                .arg(actual, 0, 'f', 6)
+                .arg(reference / actual, 0, 'f', 2);
+}
 
-    // classic
-    tbb::parallel_for(tbb::blocked_range<int>(0, n), MemSet(array));
+int main()
+{
+    int n = 1E6;
+    QVector<int> array(n); // elements are initialized
+
+    // serial
+    double serial = elapsed([&]() {
+        for (int i = 0; i < n; i++) {
+            array[i] = i;
+        }
+    });
 
     // lambda
-    tbb::parallel_for(tbb::blocked_range<int>(0, n),
-        [=] (tbb::blocked_range<int>& range) {
-            for (int i = range.begin(); i < range.end(); i++) {
-                array[i] = i;
-            }
+    double parallel = elapsed([&]() {
+        tbb::parallel_for(tbb::blocked_range<int>(0, n),
+            [&] (tbb::blocked_range<int>& range) {
+                for (int i = range.begin(); i < range.end(); i++) {
+                    array[i] = i;
+                }
+        });
     });
 
     // lambda without inner loop
-    tbb::parallel_for(0, n, 1, [=] (int& i) { array[i] = i; } );
+    tbb::parallel_for(0, n, 1, [&] (int& i) { array[i] = i; } );
 
-    delete[] array;
+    // classic
+    tbb::parallel_for(tbb::blocked_range<int>(0, n), MemSet(array.data()));
+
+    print_result("serial", serial, serial);
+    print_result("parallel", serial, parallel);
+
+    return 0;
 }

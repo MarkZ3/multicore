@@ -1,5 +1,17 @@
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QMutex>
+#include <thread>
 #include "tbb/tbb.h"
+
+using namespace std;
+
+struct work {
+    int n;
+    int rank;
+    QVector<int> *data;
+    int local_sum;
+};
 
 /*
  * Source: https://software.intel.com/fr-fr/node/506154
@@ -8,7 +20,7 @@
 class Sum {
 public:
     // default constructor
-    Sum(QVector<int>& data) : m_value(0), m_data(data) { }
+    Sum(int *data) : m_value(0), m_data(data) { }
 
     // split constructor: called to make copies of the object for each thread
     // in this case, the sum of a range starts at zero
@@ -30,34 +42,113 @@ public:
         m_value += right.m_value;
     }
     int m_value;
-    QVector<int>& m_data;
+    int *m_data;
 };
 
-int fast_sum(QVector<int> data)
+int fast_sum(QVector<int> &data)
 {
-    Sum sum(data);
+    Sum sum(data.data());
     tbb::parallel_reduce(tbb::blocked_range<int>(0, data.length()), sum);
     return sum.m_value;
 }
 
-int main(int argc, char *argv[])
+void do_sum(work *arg)
 {
-    (void) argc; (void) argv;
+    int begin = arg->data->size() * arg->rank / arg->n;
+    int end = arg->data->size() * (arg->rank + 1) / arg->n;
+    int *v = arg->data->data();
+    int sum = 0;
+    for (int i = begin; i < end; i++) {
+        sum += v[i];
+    }
+    arg->local_sum = sum;
+}
 
-    int n = 100;
-    QVector<int> v(n);
+int reduce_pthread(QVector<int> &v, int n)
+{
+    thread threads[n];
+    work items[n];
+    int final_sum = 0;
 
-    int exp = 0;
-    for (int i = 0; i <n; i++) {
-        v[i] = i;
-        exp += i;
+    for (int i = 0; i < n; i++) {
+        items[i] = work{n, i, &v, 0};
+        threads[i] = thread(do_sum, &items[i]);
     }
 
-    // classic parallel_reduce
+    for (int i = 0; i < n; i++) {
+        threads[i].join();
+        final_sum += items[i].local_sum;
+    }
+    return final_sum;
+}
 
+double elapsed(std::function<void ()> func)
+{
+    QElapsedTimer timer;
+    timer.start();
+    func();
+    return timer.nsecsElapsed() / 1000000000.0f;
+}
+
+void print_result(QString name, double reference, double actual)
+{
+    qDebug() << QString("%1 %2s (%3x)")
+                .arg(name, -12, QLatin1Char(' '))
+                .arg(actual, 0, 'f', 6)
+                .arg(reference / actual, 0, 'f', 2);
+}
+
+int main()
+{
+    int n = 1E7;
+    QVector<int> v(n);
+
+    // initialization
+    for (int i = 0; i < n; i++) {
+        v[i] = i;
+    }
+
+    // serial
+    int exp = 0;
+    double elapsed_serial = elapsed([&]() {
+        for (int i = 0; i < n; i++) {
+            exp += v[i];
+        }
+    });
+
+    // reduction with parallel_for
+    int sum0 = 0;
+    double elapsed_race = elapsed([&]() {
+        tbb::parallel_for(0, v.size(), [&](int &i) {
+            sum0 += v[i]; // race condition!
+        });
+    });
+
+    qDebug() << "exp" << exp << "act" << sum0;
+
+    // reduction with parallel_for
+    sum0 = 0;
+    QMutex mutex;
+    double elapsed_lock = elapsed([&]() {
+        tbb::parallel_for(0, v.size(), [&](int &i) {
+            mutex.lock();
+            sum0 += v[i];
+            mutex.unlock();
+        });
+    });
+
+    qDebug() << "exp" << exp << "act" << sum0;
+
+    // reduction without lock
+    int sum1 = 0;
+    int cpus = thread::hardware_concurrency();
+    double elapsed_pthread = elapsed([&]() {
+        sum1 = reduce_pthread(v, cpus);
+    });
+    qDebug() << "exp" << exp << "act" << sum1;
 
     // lambda
-    int sum = tbb::parallel_reduce(
+    int sum2 = tbb::parallel_reduce(
         tbb::blocked_range<int>(0, n),  // global range to process
         0,                              // initial value
 
@@ -75,10 +166,20 @@ int main(int argc, char *argv[])
         }
     );
 
-    qDebug() << "exp" << exp << "act" << sum;
+    qDebug() << "exp" << exp << "act" << sum2;
 
-    sum = fast_sum(v);
-    qDebug() << "exp" << exp << "act" << sum;
+    // classic parallel_reduce
+    int sum3 = 0;
+    double elapsed_tbb = elapsed([&]() {
+        sum3 = fast_sum(v);
+    });
+    qDebug() << "exp" << exp << "act" << sum3;
+
+    print_result("serial", elapsed_serial, elapsed_serial);
+    print_result("race", elapsed_serial, elapsed_race);
+    print_result("lock", elapsed_serial, elapsed_lock);
+    print_result("pthread", elapsed_serial, elapsed_pthread);
+    print_result("tbb", elapsed_serial, elapsed_tbb);
 
     return 0;
 }

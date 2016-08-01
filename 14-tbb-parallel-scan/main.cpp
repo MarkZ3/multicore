@@ -68,7 +68,7 @@ void print_result(QString name, double reference, double actual)
 
 int main()
 {
-    int len = 1E7;
+    int len = 1E8;
     QVector<int> a(len);
     QVector<int> b(len);
     QVector<int> c(len);
@@ -93,12 +93,6 @@ int main()
 
     print_result("serial", serial, serial);
     print_result("tbb scan", serial, parallel);
-
-    /*
-    qDebug() << a;
-    qDebug() << b;
-    qDebug() << c;
-    */
 
     return 0;
 }
