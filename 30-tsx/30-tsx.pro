@@ -13,3 +13,4 @@ TEMPLATE = app
 
 SOURCES += main.cpp
 
+HEADERS += tsx-cpuid.h

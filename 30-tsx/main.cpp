@@ -8,6 +8,8 @@
 #include <chrono>
 #include <urcu/uatomic.h>
 
+#include "tsx-cpuid.h"
+
 class SpinLock
 {
     unsigned int state;
@@ -82,9 +84,10 @@ int main()
     SpinLock lock;
     int n = 1E3;
     QVector<int> data(n);
-    {
-        TransactionScope scope(&lock);
-        qDebug() << scope.get_code();
+
+    if (!cpu_has_rtm()) {
+        qDebug() << "rtm not supported";
+        return -1;
     }
 
     run = 1;
