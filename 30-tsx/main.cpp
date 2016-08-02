@@ -10,6 +10,10 @@
 
 #include "tsx-cpuid.h"
 
+/*
+ * Based on: https://software.intel.com/en-us/blogs/2012/11/06/exploring-intel-transactional-synchronization-extensions-with-intel-software
+ */
+
 class SpinLock
 {
     unsigned int state;
