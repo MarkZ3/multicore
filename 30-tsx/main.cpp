@@ -68,12 +68,12 @@ volatile int run;
 
 void worker(SpinLock *lock, QVector<int> *data, int amount)
 {
-    // random number generation
-    std::mt19937 rnd;
-    std::uniform_int_distribution<uint32_t> dist(0, data->size());
+    int *buf = data->data();
+    uint size = data->size();
+    uint i = 0;
     while(run) {
         TransactionScope scope(lock);
-        data[dist(rnd)] += amount;
+        buf[i++ % size] += amount;
     }
 }
 
