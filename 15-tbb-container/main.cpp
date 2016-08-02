@@ -8,6 +8,7 @@
 #include <functional>
 #include <tbb/tbb.h>
 
+#include <immintrin.h>
 
 struct HashCmp {
     static size_t hash(const int &x) {
