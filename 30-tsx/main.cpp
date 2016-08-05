@@ -71,8 +71,8 @@ public:
     }
 
     static void reset() {
-        m_abort = 0;
-        m_success = 0;
+        uatomic_set(&m_abort, 0);
+        uatomic_set(&m_success, 0);
     }
 
     static double abort_rate() {
