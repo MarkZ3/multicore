@@ -94,7 +94,7 @@ void worker(SpinLock *lock, QVector<int> *data, int amount)
 
     while(run) {
         TransactionScope scope(lock);
-        buf[rnd[i++]] += amount;
+        buf[rnd[i++ % size]] += amount;
     }
 }
 
