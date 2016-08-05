@@ -60,6 +60,28 @@ public:
         if (m_lock->isLocked()) {
             m_lock->unlock();
             uatomic_inc(&m_abort);
+            switch(m_code) {
+            case _XABORT_EXPLICIT:
+                uatomic_inc(&m_abort_reasons[0]);
+                break;
+            case _XABORT_RETRY:
+                uatomic_inc(&m_abort_reasons[1]);
+                break;
+            case _XABORT_CONFLICT:
+                uatomic_inc(&m_abort_reasons[2]);
+                break;
+            case _XABORT_CAPACITY:
+                uatomic_inc(&m_abort_reasons[3]);
+                break;
+            case _XABORT_DEBUG:
+                uatomic_inc(&m_abort_reasons[4]);
+                break;
+            case _XABORT_NESTED:
+                uatomic_inc(&m_abort_reasons[5]);
+                break;
+            default:
+                break;
+            }
         } else {
             _xend();
             uatomic_inc(&m_success);
@@ -71,8 +93,11 @@ public:
     }
 
     static void reset() {
-        uatomic_set(&m_abort, 0);
-        uatomic_set(&m_success, 0);
+        m_abort = 0;
+        m_success = 0;
+        for (int i = 0; i < 6; i++) {
+            m_abort_reasons[i] = 0;
+        }
     }
 
     static double abort_rate() {
@@ -83,18 +108,12 @@ public:
     uint m_code;
     static uint m_abort;
     static uint m_success;
+    static uint m_abort_reasons[];
 };
 
 uint TransactionScope::m_abort = 0;
 uint TransactionScope::m_success = 0;
-
-/*
-    double abort_rate = 100 * TransactionScope::m_abort / (double) TransactionScope::m_success;
-    long tx = TransactionScope::m_success + TransactionScope::m_abort;
-
-    qDebug() << "transactions" << tx;
-    qDebug() << "abort rate" << QString("%1").arg(abort_rate, 0, 'f', 2);
-*/
+uint TransactionScope::m_abort_reasons[6];
 
 double elapsed(std::function<void ()> func)
 {
@@ -171,6 +190,9 @@ int main()
         print_result("serial", serial, serial);
         print_result("parallel rtm", serial, parallel_rtm);
         qDebug() << "abort rate" << QString("%1").arg(TransactionScope::abort_rate(), 0, 'f', 2);
+        for (int i = 0; i < 6; i++) {
+            qDebug() << "abort reason " << i << TransactionScope::m_abort_reasons[i];
+        }
     }
 
     return 0;
