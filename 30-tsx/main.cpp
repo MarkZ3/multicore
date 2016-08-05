@@ -178,11 +178,13 @@ int main()
         TransactionScope::reset();
         double parallel_rtm = elapsed([&]() {
             tbb::parallel_for(0, iter, [&](int &i) {
+                int amount = 100;
                 int from = rnd[i % rnd.size()];
                 int to = rnd[(i + 1) % rnd.size()];
                 int *data = accounts.data();
                 TransactionScope scope(&lock);
-                do_transaction2(data, from, to);
+                data[from] -= amount;
+                data[to] += amount;
             });
         });
 
