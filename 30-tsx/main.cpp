@@ -44,17 +44,25 @@ public:
 class TransactionScope {
 public:
     TransactionScope(SpinLock *lock) : m_lock(lock), m_code(0) {
-        m_code = _xbegin();
-        if (m_code == _XBEGIN_STARTED) {
-            if (!m_lock->isLocked()) {
-                return;
-            } else {
-                _xabort(1);
+        int retries = 0;
+        static int max_retries = 10;
+        while(retries < max_retries)  {
+            m_code = _xbegin();
+            if (m_code == _XBEGIN_STARTED) {
+                if (!m_lock->isLocked()) {
+                    return;
+                } else {
+                    _xabort(0xFF); // explicit abort because lock is already locked
+                }
             }
-        } else {
-            m_lock->lock();
-            qDebug() << m_code;
+            if ((m_code & _XABORT_EXPLICIT) && (_XABORT_CODE(m_code) == 0xFF)
+                && !(m_code & _XABORT_NESTED)) {
+                while(m_lock->isLocked()) {
+                    _mm_pause();
+                }
+            }
         }
+        m_lock->lock();
     }
 
     ~TransactionScope() {
@@ -154,8 +162,8 @@ int main()
         double parallel_rtm = elapsed([&]() {
             tbb::parallel_for(0, iter, [&](int &i) {
                 int amount = 100;
-                int from = i; //rnd[i % rnd.size()];
-                int to = i + 1; //rnd[(i + 1) % rnd.size()];
+                int from = rnd[i % rnd.size()];
+                int to = rnd[(i + 1) % rnd.size()];
                 int *data = accounts.data();
                 TransactionScope scope(&lock);
                 data[from] -= amount;
