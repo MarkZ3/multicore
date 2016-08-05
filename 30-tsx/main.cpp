@@ -57,8 +57,10 @@ public:
     ~TransactionScope() {
         if (m_lock->isLocked()) {
             m_lock->unlock();
+            uatomic_inc(&m_abort);
         } else {
             _xend();
+            uatomic_inc(&m_success);
         }
     }
 
@@ -68,7 +70,12 @@ public:
 
     SpinLock *m_lock;
     uint m_code;
+    static uint m_abort;
+    static uint m_success;
 };
+
+uint TransactionScope::m_abort = 0;
+uint TransactionScope::m_success = 0;
 
 volatile int run;
 
@@ -108,6 +115,12 @@ int main()
 
     t1.join();
     t2.join();
+
+    qDebug() << "iterations" << n;
+    qDebug() << "success" << TransactionScope::m_success;
+    qDebug() << "abort" << TransactionScope::m_abort;
+    qDebug() << "abort rate" << TransactionScope::m_abort / (double) TransactionScope::m_success;
+
     return 0;
 }
 
