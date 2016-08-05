@@ -141,7 +141,7 @@ int main()
     std::random_device rd;
     std::mt19937 g(rd());
 
-    int iter = 1E6;
+    int iter = 1E7;
     for (uint size = 1E2; size < 1E6; size *= 10) {
     //for (uint size = 1E6; size <= 1E6; size *= 10) {
         QVector<int> accounts(size);
