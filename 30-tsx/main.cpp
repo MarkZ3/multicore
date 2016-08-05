@@ -195,6 +195,8 @@ int main()
         qDebug() << "size=" << size;
         print_result("serial", serial, serial);
         print_result("parallel rtm", serial, parallel_rtm);
+        qDebug() << "success" << TransactionScope::m_success;
+        qDebug() << "abort" << TransactionScope::m_abort;
         qDebug() << "abort rate" << QString("%1").arg(TransactionScope::abort_rate(), 0, 'f', 2);
         for (int i = 0; i < 6; i++) {
             qDebug() << "abort reason " << i << TransactionScope::m_abort_reasons[i];
