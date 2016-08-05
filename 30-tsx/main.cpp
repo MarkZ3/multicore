@@ -1,5 +1,6 @@
 #include <QDebug>
 #include <QVector>
+#include <QElapsedTimer>
 
 #include <mutex>
 #include <random>
@@ -98,24 +99,20 @@ void worker(SpinLock *lock, QVector<int> *data, int amount)
     }
 }
 
-int main()
+void do_rtm(int n, int msdelay)
 {
-    SpinLock lock;
-    int n = 1E3;
     QVector<int> data(n);
-
-    if (!cpu_has_rtm()) {
-        qDebug() << "rtm not supported";
-        return -1;
-    }
+    SpinLock lock;
 
     run = 1;
+    TransactionScope::m_abort = 0;
+    TransactionScope::m_success = 0;
     __sync_synchronize();
 
     std::thread t1(worker, &lock, &data, -1);
     std::thread t2(worker, &lock, &data, 1);
 
-    std::chrono::milliseconds delay(1000);
+    std::chrono::milliseconds delay(msdelay);
     std::this_thread::sleep_for(delay);
 
     run = 0;
@@ -124,12 +121,24 @@ int main()
     t1.join();
     t2.join();
 
+    double abort_rate = 100 * TransactionScope::m_abort / (double) TransactionScope::m_success;
+    long tx = TransactionScope::m_success + TransactionScope::m_abort;
 
-    double rate = 100 * TransactionScope::m_abort / (double) TransactionScope::m_success;
-    qDebug() << "iterations" << TransactionScope::m_success + TransactionScope::m_abort;
-    qDebug() << "success" << TransactionScope::m_success;
-    qDebug() << "abort" << TransactionScope::m_abort;
-    qDebug() << "abort rate" << QString("%1").arg(rate, 0, 'f', 2);
+    qDebug() << "transactions" << tx;
+    qDebug() << "abort rate" << QString("%1").arg(abort_rate, 0, 'f', 2);
+}
+
+int main()
+{
+    if (!cpu_has_rtm()) {
+        qDebug() << "rtm not supported";
+        return -1;
+    }
+
+    int msdelay = 1000;
+    for (int pwr = 1E2; pwr < 1E5; pwr *= 10) {
+        do_rtm(pwr, msdelay);
+    }
 
     return 0;
 }
