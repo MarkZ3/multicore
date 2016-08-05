@@ -80,21 +80,14 @@ public:
 
     static void reset() {
         m_abort = 0;
-        m_success = 0;
-    }
-
-    static double abort_rate() {
-        return m_abort / (double) (m_success + m_abort);
     }
 
     SpinLock *m_lock;
     uint m_code;
     static uint m_abort;
-    static uint m_success;
 };
 
 uint TransactionScope::m_abort = 0;
-uint TransactionScope::m_success = 0;
 
 double elapsed(std::function<void ()> func)
 {
@@ -173,9 +166,8 @@ int main()
         qDebug() << "size=" << size;
         print_result("serial", serial, serial);
         print_result("parallel rtm", serial, parallel_rtm);
-        qDebug() << "success" << TransactionScope::m_success;
         qDebug() << "abort" << TransactionScope::m_abort;
-        qDebug() << "abort rate" << QString("%1").arg(TransactionScope::abort_rate(), 0, 'f', 2);
+        qDebug() << "abort rate" << QString("%1").arg(TransactionScope::m_abort / (double) iter, 0, 'f', 2);
     }
 
     return 0;
