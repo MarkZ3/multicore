@@ -41,8 +41,6 @@ public:
 
 };
 
-static int constructor = 0;
-
 class TransactionScope {
 public:
     TransactionScope(SpinLock *lock) : m_lock(lock), m_code(0) {
@@ -56,36 +54,12 @@ public:
         } else {
             m_lock->lock();
         }
-        uatomic_inc(&constructor);
     }
 
     ~TransactionScope() {
         if (m_lock->isLocked()) {
             m_lock->unlock();
             uatomic_inc(&m_abort);
-            switch(m_code) {
-            case _XABORT_EXPLICIT:
-                uatomic_inc(&m_abort_reasons[0]);
-                break;
-            case _XABORT_RETRY:
-                uatomic_inc(&m_abort_reasons[1]);
-                break;
-            case _XABORT_CONFLICT:
-                uatomic_inc(&m_abort_reasons[2]);
-                break;
-            case _XABORT_CAPACITY:
-                uatomic_inc(&m_abort_reasons[3]);
-                break;
-            case _XABORT_DEBUG:
-                uatomic_inc(&m_abort_reasons[4]);
-                break;
-            case _XABORT_NESTED:
-                uatomic_inc(&m_abort_reasons[5]);
-                break;
-            default:
-                qDebug() << m_code;
-                break;
-            }
         } else {
             _xend();
             uatomic_inc(&m_success);
@@ -99,9 +73,6 @@ public:
     static void reset() {
         m_abort = 0;
         m_success = 0;
-        for (int i = 0; i < 6; i++) {
-            m_abort_reasons[i] = 0;
-        }
     }
 
     static double abort_rate() {
@@ -112,12 +83,10 @@ public:
     uint m_code;
     static uint m_abort;
     static uint m_success;
-    static uint m_abort_reasons[];
 };
 
 uint TransactionScope::m_abort = 0;
 uint TransactionScope::m_success = 0;
-uint TransactionScope::m_abort_reasons[6];
 
 double elapsed(std::function<void ()> func)
 {
@@ -165,7 +134,7 @@ int main()
 
     int iter = 1E7;
     //for (uint size = 1E2; size < 1E5; size *= 10) {
-    for (uint size = 1E2; size <= 1E2; size *= 10) {
+    for (uint size = 1E6; size <= 1E6; size *= 10) {
         QVector<int> accounts(size);
         QVector<int> rnd(size);
         for (uint x = 0; x < size; x++) {
@@ -189,7 +158,7 @@ int main()
                 int *data = accounts.data();
                 TransactionScope scope(&lock);
                 data[from] -= amount;
-                //data[to] += amount;
+                data[to] += amount;
             });
         });
 
@@ -199,11 +168,6 @@ int main()
         qDebug() << "success" << TransactionScope::m_success;
         qDebug() << "abort" << TransactionScope::m_abort;
         qDebug() << "abort rate" << QString("%1").arg(TransactionScope::abort_rate(), 0, 'f', 2);
-        for (int i = 0; i < 6; i++) {
-            qDebug() << "abort reason " << i << TransactionScope::m_abort_reasons[i];
-        }
-        qDebug() << "iter" << iter;
-        qDebug() << "constructor" << constructor;
     }
 
     return 0;
