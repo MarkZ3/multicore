@@ -83,6 +83,7 @@ public:
                 uatomic_inc(&m_abort_reasons[5]);
                 break;
             default:
+                qDebug() << m_code;
                 break;
             }
         } else {
