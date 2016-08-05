@@ -121,6 +121,13 @@ void do_transaction(QVector<int> &accounts, QVector<int> &rnd, int i)
     accounts[to] += amount;
 }
 
+void do_transaction2(int *accounts, int from, int to)
+{
+    int amount = 100;
+    accounts[from] -= amount;
+    accounts[to] += amount;
+}
+
 typedef tbb::concurrent_vector<int> ConcurrentVector;
 
 int main()
@@ -152,8 +159,11 @@ int main()
         TransactionScope::reset();
         double parallel_rtm = elapsed([&]() {
             tbb::parallel_for(0, iter, [&](int &i) {
+                int from = rnd[i % rnd.size()];
+                int to = rnd[(i + 1) % rnd.size()];
+                int *data = accounts.data();
                 TransactionScope scope(&lock);
-                do_transaction(accounts, rnd, i);
+                do_transaction2(data, from, to);
             });
         });
 
