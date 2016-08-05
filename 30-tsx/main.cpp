@@ -141,7 +141,7 @@ int main()
     std::mt19937 g(rd());
 
     int iter = 1E7;
-    for (uint size = 1E2; size < 1E6; size *= 10) {
+    for (uint size = 1E3; size < 1E7; size *= 10) {
     //for (uint size = 1E6; size <= 1E6; size *= 10) {
         QVector<int> accounts(size);
         QVector<int> rnd(size);
