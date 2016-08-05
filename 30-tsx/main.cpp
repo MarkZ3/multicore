@@ -55,6 +55,7 @@ public:
                     _xabort(0xFF); // explicit abort because lock is already locked
                 }
             }
+            uatomic_inc(&m_abort);
             if ((m_code & _XABORT_EXPLICIT) && (_XABORT_CODE(m_code) == 0xFF)
                 && !(m_code & _XABORT_NESTED)) {
                 while(m_lock->isLocked()) {
@@ -68,10 +69,8 @@ public:
     ~TransactionScope() {
         if (m_lock->isLocked()) {
             m_lock->unlock();
-            uatomic_inc(&m_abort);
         } else {
             _xend();
-            uatomic_inc(&m_success);
         }
     }
 
