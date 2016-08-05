@@ -184,7 +184,7 @@ int main()
                 int *data = accounts.data();
                 TransactionScope scope(&lock);
                 data[from] -= amount;
-                data[to] += amount;
+                //data[to] += amount;
             });
         });
 
