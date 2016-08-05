@@ -116,10 +116,12 @@ int main()
     t1.join();
     t2.join();
 
-    qDebug() << "iterations" << n;
+
+    double rate = 100 * TransactionScope::m_abort / (double) TransactionScope::m_success;
+    qDebug() << "iterations" << TransactionScope::m_success + TransactionScope::m_abort;
     qDebug() << "success" << TransactionScope::m_success;
     qDebug() << "abort" << TransactionScope::m_abort;
-    qDebug() << "abort rate" << TransactionScope::m_abort / (double) TransactionScope::m_success;
+    qDebug() << "abort rate" << QString("%1").arg(rate, 0, 'f', 2);
 
     return 0;
 }
