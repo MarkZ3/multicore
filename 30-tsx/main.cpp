@@ -41,6 +41,8 @@ public:
 
 };
 
+static int constructor = 0;
+
 class TransactionScope {
 public:
     TransactionScope(SpinLock *lock) : m_lock(lock), m_code(0) {
@@ -54,6 +56,7 @@ public:
         } else {
             m_lock->lock();
         }
+        uatomic_inc(&constructor);
     }
 
     ~TransactionScope() {
@@ -160,7 +163,8 @@ int main()
     std::mt19937 g(rd());
 
     int iter = 1E7;
-    for (uint size = 1E2; size < 1E5; size *= 10) {
+    //for (uint size = 1E2; size < 1E5; size *= 10) {
+    for (uint size = 1E2; size <= 1E2; size *= 10) {
         QVector<int> accounts(size);
         QVector<int> rnd(size);
         for (uint x = 0; x < size; x++) {
@@ -195,6 +199,8 @@ int main()
         for (int i = 0; i < 6; i++) {
             qDebug() << "abort reason " << i << TransactionScope::m_abort_reasons[i];
         }
+        qDebug() << "iter" << iter;
+        qDebug() << "constructor" << constructor;
     }
 
     return 0;
