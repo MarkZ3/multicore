@@ -365,7 +365,7 @@ static int cmd_benchmark(struct command_opts *opts)
 
     for (int i = 0; libs[i].lib != THREAD_LIB_NONE; i++) {
         char *path;
-        asprintf(&path, "%s.dat", libs[i].name);
+        ret = asprintf(&path, "%s.dat", libs[i].name);
         FILE *out = fopen(path, "w");
         if (!out)
             goto err;
