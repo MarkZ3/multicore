@@ -84,9 +84,17 @@ void worker(SpinLock *lock, QVector<int> *data, int amount)
     int *buf = data->data();
     uint size = data->size();
     uint i = 0;
+    std::random_device rd;
+    std::mt19937 g(rd());
+    QVector<int> rnd(size);
+    for (uint x = 0; x < size; x++) {
+        rnd[x] = x;
+    }
+    std::shuffle(rnd.begin(), rnd.end(), g);
+
     while(run) {
         TransactionScope scope(lock);
-        buf[i++ % size] += amount;
+        buf[rnd[i++]] += amount;
     }
 }
 
