@@ -8,6 +8,7 @@
 #include <thread>
 #include <chrono>
 #include <urcu/uatomic.h>
+#include <tbb/tbb.h>
 
 #include "tsx-cpuid.h"
 
@@ -69,6 +70,15 @@ public:
         return m_code;
     }
 
+    static void reset() {
+        m_abort = 0;
+        m_success = 0;
+    }
+
+    static double abort_rate() {
+        return m_abort / (double) (m_success + m_abort);
+    }
+
     SpinLock *m_lock;
     uint m_code;
     static uint m_abort;
@@ -78,55 +88,40 @@ public:
 uint TransactionScope::m_abort = 0;
 uint TransactionScope::m_success = 0;
 
-volatile int run;
-
-void worker(SpinLock *lock, QVector<int> *data, int amount)
-{
-    int *buf = data->data();
-    uint size = data->size();
-    uint i = 0;
-    std::random_device rd;
-    std::mt19937 g(rd());
-    QVector<int> rnd(size);
-    for (uint x = 0; x < size; x++) {
-        rnd[x] = x;
-    }
-    std::shuffle(rnd.begin(), rnd.end(), g);
-
-    while(run) {
-        TransactionScope scope(lock);
-        buf[rnd[i++ % size]] += amount;
-    }
-}
-
-void do_rtm(int n, int msdelay)
-{
-    QVector<int> data(n);
-    SpinLock lock;
-
-    run = 1;
-    TransactionScope::m_abort = 0;
-    TransactionScope::m_success = 0;
-    __sync_synchronize();
-
-    std::thread t1(worker, &lock, &data, -1);
-    std::thread t2(worker, &lock, &data, 1);
-
-    std::chrono::milliseconds delay(msdelay);
-    std::this_thread::sleep_for(delay);
-
-    run = 0;
-    __sync_synchronize();
-
-    t1.join();
-    t2.join();
-
+/*
     double abort_rate = 100 * TransactionScope::m_abort / (double) TransactionScope::m_success;
     long tx = TransactionScope::m_success + TransactionScope::m_abort;
 
     qDebug() << "transactions" << tx;
     qDebug() << "abort rate" << QString("%1").arg(abort_rate, 0, 'f', 2);
+*/
+
+double elapsed(std::function<void ()> func)
+{
+    QElapsedTimer timer;
+    timer.start();
+    func();
+    return timer.nsecsElapsed() / 1000000000.0f;
 }
+
+void print_result(QString name, double reference, double actual)
+{
+    qDebug() << QString("%1 %2s (%3x)")
+                .arg(name, -12, QLatin1Char(' '))
+                .arg(actual, 0, 'f', 6)
+                .arg(reference / actual, 0, 'f', 2);
+}
+
+void do_transaction(QVector<int> &accounts, QVector<int> &rnd, int i)
+{
+    int amount = 100;
+    int from = rnd[i % rnd.size()];
+    int to = rnd[(i + 1) % rnd.size()];
+    accounts[from] -= amount;
+    accounts[to] += amount;
+}
+
+typedef tbb::concurrent_vector<int> ConcurrentVector;
 
 int main()
 {
@@ -135,9 +130,37 @@ int main()
         return -1;
     }
 
-    int msdelay = 1000;
-    for (int pwr = 1E2; pwr < 1E5; pwr *= 10) {
-        do_rtm(pwr, msdelay);
+    std::random_device rd;
+    std::mt19937 g(rd());
+
+    int iter = 1E7;
+    for (uint size = 1E2; size < 1E5; size *= 10) {
+        QVector<int> accounts(size);
+        QVector<int> rnd(size);
+        for (uint x = 0; x < size; x++) {
+            rnd[x] = x;
+        }
+        std::shuffle(rnd.begin(), rnd.end(), g);
+
+        double serial = elapsed([&]() {
+            for (int i = 0; i < iter; i++) {
+                do_transaction(accounts, rnd, i);
+            }
+        });
+
+        SpinLock lock;
+        TransactionScope::reset();
+        double parallel_rtm = elapsed([&]() {
+            tbb::parallel_for(0, iter, [&](int &i) {
+                TransactionScope scope(&lock);
+                do_transaction(accounts, rnd, i);
+            });
+        });
+
+        qDebug() << "size=" << size;
+        print_result("serial", serial, serial);
+        print_result("parallel rtm", serial, parallel_rtm);
+        qDebug() << "abort rate" << QString("%1").arg(TransactionScope::abort_rate(), 0, 'f', 2);
     }
 
     return 0;
