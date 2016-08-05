@@ -53,6 +53,7 @@ public:
             }
         } else {
             m_lock->lock();
+            qDebug() << m_code;
         }
     }
 
@@ -132,7 +133,7 @@ int main()
     std::random_device rd;
     std::mt19937 g(rd());
 
-    int iter = 1E7;
+    int iter = 1E4;
     //for (uint size = 1E2; size < 1E5; size *= 10) {
     for (uint size = 1E6; size <= 1E6; size *= 10) {
         QVector<int> accounts(size);
