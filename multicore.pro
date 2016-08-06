@@ -18,4 +18,5 @@ SUBDIRS += \
     24-omp-atomic \
     25-simd-base \
     26-simd-autovec \
-    30-tsx
+    30-tsx \
+    31-asm-goto
