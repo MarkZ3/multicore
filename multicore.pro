@@ -19,4 +19,10 @@ SUBDIRS += \
     25-simd-base \
     26-simd-autovec \
     30-tsx \
-    31-asm-goto
+    31-asm-goto \
+    40-race \
+    41-memcheck \
+    42-deadlock \
+    43-bitfields \
+    50-pmu \
+

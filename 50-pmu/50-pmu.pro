@@ -1,6 +1,6 @@
 #-------------------------------------------------
 #
-# Project created by QtCreator 2015-11-11T22:28:01
+# Project created by QtCreator 2015-09-23T22:12:26
 #
 #-------------------------------------------------
 
@@ -8,16 +8,12 @@ QT       += core
 
 QT       -= gui
 
-TARGET = 42-deadlock
+TARGET = 50-pmu
 CONFIG   += console
 CONFIG   -= app_bundle
+CONFIG += c++11
 
 TEMPLATE = app
 
-# utilisation de ThreadSanitizer
-QMAKE_CXX = clang++
-QMAKE_LINK = clang++
-QMAKE_CXXFLAGS = -fsanitize=thread
-QMAKE_LIBS = -fsanitize=thread
 
 SOURCES += main.cpp
