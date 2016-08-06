@@ -25,4 +25,6 @@ SUBDIRS += \
     42-deadlock \
     43-bitfields \
     50-pmu \
+    51-roofline \
+    52-cache-size \
 
