@@ -10,6 +10,7 @@ SUBDIRS += \
     dragonizer \
     14-tbb-parallel-scan \
     15-tbb-container \
+    16-tbb-image \
     19-omp-base \
     20-omp-speedup \
     21-omp-scope \
