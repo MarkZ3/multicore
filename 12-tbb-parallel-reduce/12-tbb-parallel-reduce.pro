@@ -11,7 +11,7 @@ QT       -= gui
 TARGET = 11-tbb-parallel-reduce
 CONFIG   += console
 CONFIG   -= app_bundle
-CONFIG += c++14
+CONFIG += c++11
 
 TEMPLATE = app
 LIBS += -ltbb
