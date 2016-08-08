@@ -7,34 +7,48 @@
 #include <QVector>
 #include <thread>
 #include <iostream>
+#include <tbb/tbb.h>
 
 using namespace std;
+
+void processLine(QImage &img, int dr, int db, int y, int dg)
+{
+    QRgb *line = (QRgb *) img.scanLine(y);
+    for (int x = 0; x < img.width(); x++) {
+        if (!img.valid(x, y)) {
+            qDebug() << QString("invalid (%1,%2)").arg(x).arg(y);
+        }
+        QRgb *rgb = line + x;
+
+        int r = qBound(0, qRed(*rgb) + dr, 255);
+        int g = qBound(0, qGreen(*rgb) + dg, 255);
+        int b = qBound(0, qBlue(*rgb) + db, 255);
+
+        *rgb = qRgb(r, g, b);
+    }
+}
 
 void processImage(QImage &img, int cpus)
 {
     (void) cpus;
+    int dr = 20, dg = 0, db = 0;
+    tbb::task_scheduler_init init(cpus);
 
     // TODO: modify the image in parallel
-    int dr = 20, dg = 0, db = 0;
-    for (int y = 0; y < img.height(); y++) {
-        QRgb *line = (QRgb *) img.scanLine(y);
-        for (int x = 0; x < img.width(); x++) {
-            if (!img.valid(x, y)) {
-                qDebug() << QString("invalid (%1,%2)").arg(x).arg(y);
-            }
-            QRgb *rgb = line + x;
-
-            int r = qBound(0, qRed(*rgb) + dr, 255);
-            int g = qBound(0, qGreen(*rgb) + dg, 255);
-            int b = qBound(0, qBlue(*rgb) + db, 255);
-
-            *rgb = qRgb(r, g, b);
+    tbb::parallel_for(tbb::blocked_range<int>(0, img.height()), [&](tbb::blocked_range<int> & range) {
+        for (auto i = range.begin(); i != range.end(); i++) {
+            processLine(img, dr, db, i, dg);
         }
-    }
+    });
+
+//    for (int y = 0; y < img.height(); y++) {
+//        processLine(img, dr, db, y, dg);
+//    }
 }
 
 int main(int argc, char *argv[])
 {
+
     QCoreApplication app(argc, argv);
     QCommandLineParser parser;
     parser.addHelpOption();
